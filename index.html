@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>חיזוי המילה הבאה — איך AI חושב</title>
+
+  <!-- ============================================================
+       טכנולוגיות (נטענות מ-CDN כדי שהקובץ ירוץ בלחיצה כפולה,
+       בלי התקנה ובלי שרת):
+       - React + ReactDOM  : בניית ממשק מבוסס רכיבים
+       - Babel             : מתרגם JSX בזמן ריצה בתוך הדפדפן
+       - Tailwind CSS      : עיצוב מודרני ואפקט "זכוכית" (glassmorphism)
+       ============================================================ -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* רקע מדורג + אנימציות עדינות. Tailwind מטפל ברוב העיצוב,
+       וכאן רק דברים שקשה לבטא ב-utility classes. */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Heebo', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      color: #fff;
+      overflow-x: hidden;
+    }
+    /* "כדורי" אור מטושטשים שזזים ברקע — נותן עומק לאפקט הזכוכית */
+    .blob {
+      position: fixed; border-radius: 9999px; filter: blur(80px);
+      opacity: 0.35; z-index: 0; animation: float 14s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translate(0,0) scale(1); }
+      50%     { transform: translate(40px,-30px) scale(1.15); }
+    }
+    @keyframes popIn {
+      0%   { transform: scale(0.7); opacity: 0; }
+      60%  { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%     { transform: translateX(-8px); }
+      75%     { transform: translateX(8px); }
+    }
+    @keyframes fadeUp {
+      from { transform: translateY(12px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .pop-in  { animation: popIn 0.45s cubic-bezier(.2,.8,.2,1) both; }
+    .shake   { animation: shake 0.4s ease both; }
+    .fade-up { animation: fadeUp 0.5s ease both; }
+
+    /* פס התקדמות (probability bar) שמתמלא בצורה חלקה */
+    .bar-fill { transition: width 0.8s cubic-bezier(.2,.8,.2,1); }
+  </style>
+</head>
+<body>
+  <!-- כדורי הרקע -->
+  <div class="blob" style="background:#6366f1; width:340px; height:340px; top:-60px; right:-40px;"></div>
+  <div class="blob" style="background:#ec4899; width:300px; height:300px; bottom:-80px; left:-60px; animation-delay:-7s;"></div>
+
+  <!-- כאן React "מרכיב" את האפליקציה -->
+  <div id="root" style="position:relative; z-index:1;"></div>
+
+  <!-- type="text/babel" => Babel יתרגם את ה-JSX שבפנים ל-JS רגיל -->
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    /* =====================================================================
+       נתוני המשחק.
+       כל "שלב" מדגים את הרעיון המרכזי: מודל שפה (LLM) הוא בעצם פונקציה
+       מתמטית ענקית שמנבאת את ה-TOKEN (מילה/חלק-מילה) הבא בעל ההסתברות
+       הגבוהה ביותר, בהתבסס על ההקשר (context) שלפניו.
+
+       - context  : המילים שכבר "נכתבו" (מוצגות כבלוקים = tokens)
+       - options  : 4 ניחושים אפשריים לטוקן הבא, כל אחד עם הסתברות מדומה
+       - prob      : ההסתברות (%). הנכון = הגבוה ביותר, בדיוק כמו ש-LLM בוחר
+       - fact      : עובדה חינוכית שמופיעה אחרי תשובה נכונה
+       ===================================================================== */
+    const LEVELS = [
+      {
+        id: 1,
+        title: "שלב 1 — חיזוי פשוט",
+        subtitle: "המודל בוחר את הטוקן הסביר ביותר לפי ההקשר",
+        context: ["Early", "one", "morning,", "the", "sun", "was"],
+        options: [
+          { word: "shining", prob: 95 },
+          { word: "laying",  prob: 2 },
+          { word: "blue",    prob: 1 },
+          { word: "dog",     prob: 0.1 },
+        ],
+        fact: "בדיוק כך עובד GPT-4! הוא מפרק טקסט לטוקנים ומשתמש באוצר מילים של ~100,000 טוקנים כדי לנחש סטטיסטית את החלק הבא בפאזל.",
+      },
+      {
+        id: 2,
+        title: "שלב 2 — הקשר ומשמעות",
+        subtitle: "אותן מילים יכולות להוביל לכיוונים שונים — ההקשר מכריע",
+        context: ["Time", "flies", "like", "an"],
+        options: [
+          { word: "arrow",  prob: 85 },
+          { word: "banana", prob: 10 },
+          { word: "clock",  prob: 4 },
+          { word: "bird",   prob: 1 },
+        ],
+        fact: "המשפט הזה מפורסם כי הוא דו-משמעי. המודל לא 'מבין' כמונו — הוא מסתמך על איזה רצף מילים הופיע הכי הרבה פעמים בנתוני האימון.",
+      },
+      {
+        id: 3,
+        title: "שלב 3 — טוקנים הם לא מילים שלמות",
+        subtitle: "לפעמים טוקן הוא רק חלק ממילה",
+        context: ["Artificial", "intelli"],
+        options: [
+          { word: "gence", prob: 92 },
+          { word: "gent",  prob: 5 },
+          { word: "dog",   prob: 2 },
+          { word: "blue",  prob: 1 },
+        ],
+        fact: "טוקן הוא לא תמיד מילה שלמה! 'intelligence' עשויה להתפרק ל-'intelli' + 'gence'. כך המודל מתמודד גם עם מילים נדירות.",
+      },
+      {
+        id: 4,
+        title: "שלב 4 — הסתברויות זעירות",
+        subtitle: "ההפרש בין ניחוש טוב לרע יכול להיות עצום",
+        context: ["The", "capital", "of", "France", "is"],
+        options: [
+          { word: "Paris",  prob: 98 },
+          { word: "London", prob: 1.2 },
+          { word: "Berlin", prob: 0.014 },
+          { word: "pizza",  prob: 0.00005 },
+        ],
+        fact: "שים לב להפרש: 0.014% מול 0.00005%. המודל מחשב הסתברות לכל טוקן באוצר המילים ובוחר את הגבוה — מיליוני חישובים לכל מילה.",
+      },
+    ];
+
+    /* רכיב קטן: בלוק של טוקן בודד מתוך המשפט (ההקשר) */
+    function TokenBlock({ text, ghost }) {
+      return (
+        <span
+          className={
+            "inline-block px-3 py-2 m-1 rounded-xl border text-lg font-semibold " +
+            "backdrop-blur-md transition " +
+            (ghost
+              ? "border-dashed border-white/40 text-white/50 bg-white/5"   // ה"חור" שצריך למלא
+              : "border-white/20 text-white bg-white/10 shadow-lg")        // טוקן קיים
+          }
+          dir="ltr"
+        >
+          {text}
+        </span>
+      );
+    }
+
+    /* רכיב: כפתור אפשרות עם פס הסתברות */
+    function OptionCard({ opt, state, onClick, revealed }) {
+      // צבע לפי מצב: רגיל / נכון / שגוי
+      let ring = "border-white/15 hover:border-indigo-300/70 hover:bg-white/15";
+      if (state === "correct") ring = "border-emerald-400 bg-emerald-400/20";
+      if (state === "wrong")   ring = "border-rose-400 bg-rose-400/20 shake";
+
+      return (
+        <button
+          onClick={onClick}
+          disabled={revealed}
+          className={
+            "group relative w-full text-right p-4 rounded-2xl border " +
+            "backdrop-blur-xl bg-white/10 shadow-xl transition-all duration-200 " +
+            "disabled:cursor-default hover:scale-[1.02] " + ring
+          }
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-2xl font-bold tracking-wide" dir="ltr">{opt.word}</span>
+            {/* ההסתברות מתגלה רק אחרי בחירה — כדי שהשחקן ינחש לפי הקשר ולא לפי המספר */}
+            <span className={"text-sm font-mono px-2 py-1 rounded-lg bg-black/30 " +
+              (revealed ? "opacity-100" : "opacity-0")}>
+              {opt.prob}%
+            </span>
+          </div>
+          {/* פס ההסתברות — ויזואליזציה של ה"ביטחון" של המודל */}
+          <div className="mt-3 h-2 w-full rounded-full bg-black/30 overflow-hidden">
+            <div
+              className="bar-fill h-full rounded-full bg-gradient-to-r from-indigo-400 to-pink-400"
+              style={{ width: revealed ? Math.min(opt.prob, 100) + "%" : "0%" }}
+            />
+          </div>
+        </button>
+      );
+    }
+
+    /* רכיב ראשי */
+    function App() {
+      const [levelIdx, setLevelIdx]   = useState(0);
+      const [selected, setSelected]   = useState(null);   // המילה שנבחרה
+      const [score, setScore]         = useState(0);
+      const [attempts, setAttempts]   = useState(0);
+      const [showPopup, setShowPopup] = useState(false);
+      const [finished, setFinished]   = useState(false);
+      const [started, setStarted]     = useState(false);   // עמוד הפתיחה
+
+      const level = LEVELS[levelIdx];
+
+      // הטוקן הנכון = ההסתברות הגבוהה ביותר (זה בדיוק מה ש-LLM עושה)
+      const correctWord = useMemo(
+        () => level.options.reduce((a, b) => (b.prob > a.prob ? b : a)).word,
+        [level]
+      );
+
+      const revealed = selected !== null;
+
+      function handlePick(word) {
+        if (revealed) return;
+        setSelected(word);
+        setAttempts(a => a + 1);
+        if (word === correctWord) {
+          setScore(s => s + 1);
+          setTimeout(() => setShowPopup(true), 500); // נותן לאנימציית הפס להתחיל
+        }
+      }
+
+      function next() {
+        setShowPopup(false);
+        setSelected(null);
+        if (levelIdx + 1 < LEVELS.length) {
+          setLevelIdx(i => i + 1);
+        } else {
+          setFinished(true);
+        }
+      }
+
+      function retry() {
+        // בחירה שגויה — מאפשר לנסות שוב את אותו שלב
+        setSelected(null);
+      }
+
+      function restart() {
+        setLevelIdx(0); setSelected(null); setScore(0);
+        setAttempts(0); setShowPopup(false); setFinished(false);
+        setStarted(false); // חוזר לעמוד הפתיחה
+      }
+
+      /* ----- עמוד פתיחה: מסביר מה עשינו, ההקשר והמושג ----- */
+      if (!started) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
+            <div className="pop-in max-w-2xl w-full p-7 sm:p-10 rounded-3xl
+                            border border-white/20 bg-white/10 backdrop-blur-2xl shadow-2xl">
+              <div className="text-center mb-6">
+                <div className="text-5xl mb-3">🧠💬</div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">
+                  איך AI מנחש את המילה הבאה?
+                </h1>
+                <p className="text-indigo-300 font-semibold">
+                  Tokens · Context · Next-Word Prediction
+                </p>
+              </div>
+
+              {/* מה זה המושג */}
+              <div className="bg-black/25 rounded-2xl p-5 mb-4 leading-relaxed text-white/85 text-sm sm:text-base">
+                <p className="font-bold mb-2">💡 המושג שבחרנו להמחיש</p>
+                <p>
+                  מודל שפה גדול (LLM) כמו ChatGPT הוא בעצם <b>פונקציה מתמטית ענקית</b>
+                  שאומנה לעשות דבר אחד: לחזות את ה-<b>טוקן</b> (מילה או חלק-מילה) הבא
+                  בעל ההסתברות הגבוהה ביותר — לפי ה<b>הקשר</b> (המילים שכבר נכתבו).
+                  הוא לא "מבין" כמונו; הוא מחשב הסתברויות על פני אוצר מילים של
+                  ~100,000 טוקנים ובוחר את הסביר ביותר, שוב ושוב.
+                </p>
+              </div>
+
+              {/* מה עשינו */}
+              <div className="bg-black/25 rounded-2xl p-5 mb-4 leading-relaxed text-white/85 text-sm sm:text-base">
+                <p className="font-bold mb-2">🎮 מה בנינו</p>
+                <p>
+                  משחק שבו <b>אתה הופך להיות המודל</b>. בכל שלב מוצג משפט מפורק לבלוקים
+                  (טוקנים) עם "חור" בסוף, ועליך לבחור מבין 4 אפשרויות את הטוקן הסביר
+                  ביותר. ההסתברות נחשפת רק <b>אחרי</b> הבחירה — בדיוק כמו שהמודל "מתחייב"
+                  לתשובה ואז רואים את הביטחון שלו.
+                </p>
+              </div>
+
+              {/* ההקשר האקדמי */}
+              <div className="bg-black/25 rounded-2xl p-5 mb-6 leading-relaxed text-white/70 text-xs sm:text-sm">
+                <p className="font-bold mb-1 text-white/85">🎓 הקשר</p>
+                <p>
+                  פרויקט אישי בקורס "יישומי בינה מלאכותית בעולם העסקי" — אמצעי המחשה
+                  אינטראקטיבי לאחד המושגים החישוביים הנלמדים בקורס.
+                </p>
+              </div>
+
+              <button onClick={() => setStarted(true)}
+                className="w-full px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r
+                           from-indigo-500 to-pink-500 hover:scale-[1.02] transition shadow-lg">
+                בוא נתחיל ←
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      /* ----- מסך סיום ----- */
+      if (finished) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <div className="pop-in max-w-lg w-full text-center p-10 rounded-3xl
+                            border border-white/20 bg-white/10 backdrop-blur-2xl shadow-2xl">
+              <div className="text-6xl mb-4">🏆</div>
+              <h1 className="text-3xl font-extrabold mb-2">סיימת את כל השלבים!</h1>
+              <p className="text-white/70 mb-6">
+                ניבאת נכון {score} מתוך {LEVELS.length} טוקנים.
+              </p>
+              <div className="text-right bg-black/30 rounded-2xl p-5 mb-6 leading-relaxed">
+                <p className="font-bold mb-2">💡 מה למדנו?</p>
+                <p className="text-white/80 text-sm">
+                  מודל שפה גדול (LLM) הוא פונקציה מתמטית עצומה שאומנה לחזות את הטוקן
+                  הבא בעל ההסתברות הגבוהה ביותר, לפי ההקשר. בדיוק כמו ששיחקת — רק
+                  שהוא עושה זאת על פני אוצר מילים של ~100,000 טוקנים, מיליארדי פעמים.
+                </p>
+              </div>
+              <button onClick={restart}
+                className="px-8 py-3 rounded-2xl font-bold bg-gradient-to-r
+                           from-indigo-500 to-pink-500 hover:scale-105 transition shadow-lg">
+                שחק שוב 🔄
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      /* ----- מסך משחק ----- */
+      return (
+        <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
+          {/* כותרת + ניקוד */}
+          <header className="w-full max-w-3xl flex items-center justify-between mb-6 fade-up">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold">🧠 אתה המודל</h1>
+              <p className="text-white/60 text-sm">נחש את הטוקן הבא לפי ההקשר</p>
+            </div>
+            <div className="text-right bg-white/10 border border-white/20 backdrop-blur-xl
+                            rounded-2xl px-4 py-2">
+              <div className="text-xs text-white/60">ניקוד</div>
+              <div className="text-xl font-bold">{score} / {LEVELS.length}</div>
+            </div>
+          </header>
+
+          {/* מד התקדמות בין שלבים */}
+          <div className="w-full max-w-3xl h-1.5 bg-white/10 rounded-full mb-6 overflow-hidden">
+            <div className="bar-fill h-full bg-gradient-to-r from-indigo-400 to-pink-400"
+                 style={{ width: ((levelIdx) / LEVELS.length) * 100 + "%" }} />
+          </div>
+
+          {/* כרטיס השלב */}
+          <main className="w-full max-w-3xl pop-in" key={level.id}>
+            <div className="p-6 sm:p-8 rounded-3xl border border-white/20
+                            bg-white/10 backdrop-blur-2xl shadow-2xl">
+              <div className="mb-1 text-sm font-semibold text-indigo-300">{level.title}</div>
+              <div className="mb-5 text-white/60 text-sm">{level.subtitle}</div>
+
+              {/* המשפט כבלוקים של טוקנים + "חור" למילוי */}
+              <div className="flex flex-wrap items-center justify-center
+                              bg-black/20 rounded-2xl p-5 mb-6" dir="ltr">
+                {level.context.map((t, i) => <TokenBlock key={i} text={t} />)}
+                <TokenBlock text="? ? ?" ghost />
+              </div>
+
+              {/* 4 האפשרויות */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                {level.options.map(opt => {
+                  let st = null;
+                  if (revealed && opt.word === correctWord) st = "correct";
+                  else if (revealed && opt.word === selected) st = "wrong";
+                  return (
+                    <OptionCard
+                      key={opt.word}
+                      opt={opt}
+                      state={st}
+                      revealed={revealed}
+                      onClick={() => handlePick(opt.word)}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* הודעת "טעות — נסה שוב" */}
+              {revealed && selected !== correctWord && (
+                <div className="mt-5 text-center fade-up">
+                  <p className="text-rose-300 mb-3">
+                    לא הטוקן בעל ההסתברות הגבוהה ביותר. הסתכל על הפסים והקשר 👀
+                  </p>
+                  <button onClick={retry}
+                    className="px-6 py-2 rounded-xl font-semibold bg-white/15
+                               hover:bg-white/25 border border-white/20 transition">
+                    נסה שוב
+                  </button>
+                </div>
+              )}
+            </div>
+          </main>
+
+          {/* פופאפ הצלחה */}
+          {showPopup && (
+            <div className="fixed inset-0 z-20 flex items-center justify-center p-6
+                            bg-black/50 backdrop-blur-sm">
+              <div className="pop-in max-w-md w-full text-center p-8 rounded-3xl
+                              border border-emerald-300/30 bg-white/10 backdrop-blur-2xl shadow-2xl">
+                <div className="text-5xl mb-3">🎉</div>
+                <h2 className="text-2xl font-extrabold mb-2 text-emerald-300">כל הכבוד!</h2>
+                <p className="text-white/85 leading-relaxed mb-6">{level.fact}</p>
+                <button onClick={next}
+                  className="px-8 py-3 rounded-2xl font-bold bg-gradient-to-r
+                             from-emerald-500 to-indigo-500 hover:scale-105 transition shadow-lg">
+                  {levelIdx + 1 < LEVELS.length ? "לשלב הבא ←" : "לסיום 🏁"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <footer className="mt-8 text-white/40 text-xs text-center">
+            פרויקט אישי — יישומי בינה מלאכותית בעולם העסקי · הדגמה של Tokens, Context & Next-Word Prediction
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
