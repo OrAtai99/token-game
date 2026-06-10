@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>חיזוי המילה הבאה — אור עתאי | קורס 6170</title>
 
+  <!-- תיאור למנועי חיפוש -->
+  <meta name="description" content="משחק אינטראקטיבי שמלמד איך מודלי AI מנבאים את המילה הבאה — טוקנים, הקשר והסתברות. פרויקט אישי בקורס יישומי בינה מלאכותית בעולם העסקי." />
+  <meta name="author" content="אור עתאי" />
+
+  <!-- תצוגה מקדימה יפה כששולחים את הלינק (WhatsApp / פייסבוק / לינקדאין) -->
+  <meta property="og:title" content="🧠 איך AI מנחש את המילה הבאה?" />
+  <meta property="og:description" content="משחק אינטראקטיבי: הפוך למודל ה-AI ונחש את הטוקן הבא לפי ההקשר. מאת אור עתאי — קורס 6170." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+
+  <!-- אייקון לשונית הדפדפן (אימוג'י מוח כ-SVG, ללא קובץ חיצוני) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+
   <!-- ============================================================
        טכנולוגיות (נטענות מ-CDN כדי שהקובץ ירוץ בלחיצה כפולה,
        בלי התקנה ובלי שרת):
@@ -299,7 +312,7 @@
       const [levelIdx, setLevelIdx]   = useState(0);
       const [selected, setSelected]   = useState(null);   // המילה שנבחרה
       const [score, setScore]         = useState(0);
-      const [attempts, setAttempts]   = useState(0);
+      const [solved, setSolved]       = useState(() => new Set()); // שלבים שכבר נפתרו (מונע ספירה כפולה)
       const [showPopup, setShowPopup] = useState(false);
       const [finished, setFinished]   = useState(false);
       const [started, setStarted]     = useState(false);   // עמוד הפתיחה
@@ -328,9 +341,12 @@
       function handlePick(word) {
         if (revealed) return;
         setSelected(word);
-        setAttempts(a => a + 1);
         if (word === correctWord) {
-          setScore(s => s + 1);
+          // מוסיפים לניקוד רק אם השלב לא נפתר בעבר (מונע ספירה כפולה במעבר חזור/קדימה)
+          if (!solved.has(level.id)) {
+            setScore(s => s + 1);
+            setSolved(prev => new Set(prev).add(level.id));
+          }
           setTimeout(() => setShowPopup(true), 500); // נותן לאנימציית הפס להתחיל
         }
       }
@@ -352,7 +368,7 @@
 
       function restart() {
         setLevelIdx(0); setSelected(null); setScore(0);
-        setAttempts(0); setShowPopup(false); setFinished(false);
+        setSolved(new Set()); setShowPopup(false); setFinished(false);
         setStarted(false); // חוזר לעמוד הפתיחה
       }
 
@@ -512,7 +528,8 @@
             <div className="text-center bg-white/10 border border-white/20 backdrop-blur-xl
                             rounded-2xl px-4 py-2 shrink-0">
               <div className="text-xs text-white/60">ניקוד</div>
-              <div className="text-xl font-bold">{score} / {LEVELS.length}</div>
+              {/* dir=ltr כדי שהמספרים לא יתהפכו בסביבה RTL (יוצג 0 / 9 ולא 9 / 0) */}
+              <div className="text-xl font-bold" dir="ltr">{score} / {LEVELS.length}</div>
             </div>
           </header>
 
