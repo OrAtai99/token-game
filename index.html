@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>חיזוי המילה הבאה — איך AI חושב</title>
+  <title>חיזוי המילה הבאה — אור עתאי | קורס 6170</title>
 
   <!-- ============================================================
        טכנולוגיות (נטענות מ-CDN כדי שהקובץ ירוץ בלחיצה כפולה,
@@ -243,59 +243,105 @@
         setStarted(false); // חוזר לעמוד הפתיחה
       }
 
+      // כפתור "חזור": אם אנחנו בשלב 2 ומעלה -> חוזר שלב אחורה.
+      // אם אנחנו בשלב הראשון -> חוזר לעמוד הפתיחה.
+      function goBack() {
+        setShowPopup(false);
+        setSelected(null);
+        if (levelIdx > 0) setLevelIdx(i => i - 1);
+        else setStarted(false);
+      }
+
       /* ----- עמוד פתיחה: מסביר מה עשינו, ההקשר והמושג ----- */
       if (!started) {
         return (
           <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
-            <div className="pop-in max-w-2xl w-full p-7 sm:p-10 rounded-3xl
+            <div className="pop-in max-w-2xl w-full rounded-3xl overflow-hidden
                             border border-white/20 bg-white/10 backdrop-blur-2xl shadow-2xl">
-              <div className="text-center mb-6">
+
+              {/* כותרת עליונה צבעונית */}
+              <div className="bg-gradient-to-br from-indigo-600/60 to-pink-600/50 px-7 sm:px-10 pt-8 pb-7 text-center">
+                <div className="inline-flex items-center gap-2 text-xs font-semibold
+                                bg-white/15 border border-white/25 rounded-full px-4 py-1.5 mb-4">
+                  🎓 פרויקט אישי · אמצעי המחשה אינטראקטיבי
+                </div>
                 <div className="text-5xl mb-3">🧠💬</div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">
+                <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 leading-tight">
                   איך AI מנחש את המילה הבאה?
                 </h1>
-                <p className="text-indigo-300 font-semibold">
+                <p className="text-white/90 font-semibold tracking-wide">
                   Tokens · Context · Next-Word Prediction
                 </p>
               </div>
 
-              {/* מה זה המושג */}
-              <div className="bg-black/25 rounded-2xl p-5 mb-4 leading-relaxed text-white/85 text-sm sm:text-base">
-                <p className="font-bold mb-2">💡 המושג שבחרנו להמחיש</p>
-                <p>
-                  מודל שפה גדול (LLM) כמו ChatGPT הוא בעצם <b>פונקציה מתמטית ענקית</b>
-                  שאומנה לעשות דבר אחד: לחזות את ה-<b>טוקן</b> (מילה או חלק-מילה) הבא
-                  בעל ההסתברות הגבוהה ביותר — לפי ה<b>הקשר</b> (המילים שכבר נכתבו).
-                  הוא לא "מבין" כמונו; הוא מחשב הסתברויות על פני אוצר מילים של
-                  ~100,000 טוקנים ובוחר את הסביר ביותר, שוב ושוב.
-                </p>
-              </div>
+              <div className="p-7 sm:p-10">
+                {/* מה זה המושג */}
+                <div className="bg-black/25 rounded-2xl p-5 mb-4 leading-relaxed text-white/85 text-sm sm:text-base">
+                  <p className="font-bold mb-2">💡 המושג שבחרנו להמחיש</p>
+                  <p>
+                    מודל שפה גדול (LLM) כמו ChatGPT הוא בעצם <b>פונקציה מתמטית ענקית</b>
+                    שאומנה לעשות דבר אחד: לחזות את ה-<b>טוקן</b> (מילה או חלק-מילה) הבא
+                    בעל ההסתברות הגבוהה ביותר — לפי ה<b>הקשר</b> (המילים שכבר נכתבו).
+                    הוא לא "מבין" כמונו; הוא מחשב הסתברויות על פני אוצר מילים של
+                    ~100,000 טוקנים ובוחר את הסביר ביותר, שוב ושוב.
+                  </p>
+                </div>
 
-              {/* מה עשינו */}
-              <div className="bg-black/25 rounded-2xl p-5 mb-4 leading-relaxed text-white/85 text-sm sm:text-base">
-                <p className="font-bold mb-2">🎮 מה בנינו</p>
-                <p>
-                  משחק שבו <b>אתה הופך להיות המודל</b>. בכל שלב מוצג משפט מפורק לבלוקים
-                  (טוקנים) עם "חור" בסוף, ועליך לבחור מבין 4 אפשרויות את הטוקן הסביר
-                  ביותר. ההסתברות נחשפת רק <b>אחרי</b> הבחירה — בדיוק כמו שהמודל "מתחייב"
-                  לתשובה ואז רואים את הביטחון שלו.
-                </p>
-              </div>
+                {/* מה עשינו */}
+                <div className="bg-black/25 rounded-2xl p-5 mb-4 leading-relaxed text-white/85 text-sm sm:text-base">
+                  <p className="font-bold mb-2">🎮 מה בניתי</p>
+                  <p>
+                    משחק שבו <b>אתה הופך להיות המודל</b>. בכל שלב מוצג משפט מפורק לבלוקים
+                    (טוקנים) עם "חור" בסוף, ועליך לבחור מבין 4 אפשרויות את הטוקן הסביר
+                    ביותר. ההסתברות נחשפת רק <b>אחרי</b> הבחירה — בדיוק כמו שהמודל "מתחייב"
+                    לתשובה ואז רואים את הביטחון שלו.
+                  </p>
+                </div>
 
-              {/* ההקשר האקדמי */}
-              <div className="bg-black/25 rounded-2xl p-5 mb-6 leading-relaxed text-white/70 text-xs sm:text-sm">
-                <p className="font-bold mb-1 text-white/85">🎓 הקשר</p>
-                <p>
-                  פרויקט אישי בקורס "יישומי בינה מלאכותית בעולם העסקי" — אמצעי המחשה
-                  אינטראקטיבי לאחד המושגים החישוביים הנלמדים בקורס.
-                </p>
-              </div>
+                {/* איך משחקים — 3 צעדים */}
+                <div className="grid grid-cols-3 gap-3 mb-5 text-center">
+                  <div className="bg-white/5 border border-white/15 rounded-2xl p-3">
+                    <div className="text-2xl mb-1">📖</div>
+                    <div className="text-xs text-white/75">קרא את ההקשר</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/15 rounded-2xl p-3">
+                    <div className="text-2xl mb-1">👆</div>
+                    <div className="text-xs text-white/75">בחר טוקן</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/15 rounded-2xl p-3">
+                    <div className="text-2xl mb-1">📊</div>
+                    <div className="text-xs text-white/75">גלה את ההסתברות</div>
+                  </div>
+                </div>
 
-              <button onClick={() => setStarted(true)}
-                className="w-full px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r
-                           from-indigo-500 to-pink-500 hover:scale-[1.02] transition shadow-lg">
-                בוא נתחיל ←
-              </button>
+                {/* כרטיס יוצר + הקשר אקדמי */}
+                <div className="bg-gradient-to-l from-indigo-500/15 to-transparent
+                                border border-white/15 rounded-2xl p-5 mb-6 text-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500
+                                    flex items-center justify-center text-lg font-extrabold shrink-0">
+                      או
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">נוצר על ידי אור עתאי</div>
+                      <div className="text-white/60 text-xs">תואר B.A — מנהל עסקים ומערכות מידע</div>
+                    </div>
+                  </div>
+                  <div className="text-white/70 text-xs sm:text-sm leading-relaxed border-t border-white/10 pt-3">
+                    <p><b className="text-white/85">קורס:</b> יישומי בינה מלאכותית בעולם העסקי (6170)</p>
+                    <p><b className="text-white/85">מוסד:</b> הקריה האקדמית אונו (OAC)</p>
+                    <p className="mt-1">
+                      פרויקט אישי — אמצעי המחשה לאחד המושגים החישוביים הנלמדים בקורס.
+                    </p>
+                  </div>
+                </div>
+
+                <button onClick={() => setStarted(true)}
+                  className="w-full px-8 py-4 rounded-2xl font-bold text-lg bg-gradient-to-r
+                             from-indigo-500 to-pink-500 hover:scale-[1.02] transition shadow-lg">
+                  בוא נתחיל ←
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -323,8 +369,11 @@
               <button onClick={restart}
                 className="px-8 py-3 rounded-2xl font-bold bg-gradient-to-r
                            from-indigo-500 to-pink-500 hover:scale-105 transition shadow-lg">
-                שחק שוב 🔄
+                חזרה לעמוד הפתיחה 🔄
               </button>
+              <p className="mt-6 text-white/40 text-xs">
+                נוצר על ידי אור עתאי · קורס 6170 · הקריה האקדמית אונו
+              </p>
             </div>
           </div>
         );
@@ -333,14 +382,21 @@
       /* ----- מסך משחק ----- */
       return (
         <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
-          {/* כותרת + ניקוד */}
-          <header className="w-full max-w-3xl flex items-center justify-between mb-6 fade-up">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold">🧠 אתה המודל</h1>
-              <p className="text-white/60 text-sm">נחש את הטוקן הבא לפי ההקשר</p>
+          {/* כותרת + כפתור חזרה + ניקוד */}
+          <header className="w-full max-w-3xl flex items-center justify-between gap-3 mb-6 fade-up">
+            <button onClick={goBack}
+              className="flex items-center gap-1.5 text-sm font-semibold
+                         bg-white/10 hover:bg-white/20 border border-white/20
+                         rounded-2xl px-4 py-2.5 transition shrink-0"
+              title={levelIdx > 0 ? "חזרה לשלב הקודם" : "חזרה לעמוד הפתיחה"}>
+              → חזור
+            </button>
+            <div className="text-center flex-1">
+              <h1 className="text-xl sm:text-2xl font-extrabold">🧠 אתה המודל</h1>
+              <p className="text-white/60 text-xs sm:text-sm">נחש את הטוקן הבא לפי ההקשר</p>
             </div>
-            <div className="text-right bg-white/10 border border-white/20 backdrop-blur-xl
-                            rounded-2xl px-4 py-2">
+            <div className="text-center bg-white/10 border border-white/20 backdrop-blur-xl
+                            rounded-2xl px-4 py-2 shrink-0">
               <div className="text-xs text-white/60">ניקוד</div>
               <div className="text-xl font-bold">{score} / {LEVELS.length}</div>
             </div>
@@ -418,8 +474,9 @@
             </div>
           )}
 
-          <footer className="mt-8 text-white/40 text-xs text-center">
-            פרויקט אישי — יישומי בינה מלאכותית בעולם העסקי · הדגמה של Tokens, Context & Next-Word Prediction
+          <footer className="mt-8 text-white/40 text-xs text-center leading-relaxed">
+            נוצר על ידי <span className="text-white/60 font-semibold">אור עתאי</span> · קורס יישומי בינה מלאכותית בעולם העסקי (6170) · הקריה האקדמית אונו
+            <br />הדגמה של Tokens, Context & Next-Word Prediction
           </footer>
         </div>
       );
