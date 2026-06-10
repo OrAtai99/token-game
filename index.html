@@ -218,12 +218,16 @@
       );
     }
 
-    /* רכיב: כפתור אפשרות עם פס הסתברות */
-    function OptionCard({ opt, state, onClick, revealed, rtl }) {
+    /* רכיב: כפתור אפשרות עם פס הסתברות.
+       letter = אות מזהה (A/B/C/D) לפני החשיפה — נותן מראה של חידון.
+       rank   = הדירוג לפי הסתברות (1 = הגבוה ביותר) — מוצג כמדליה אחרי החשיפה. */
+    function OptionCard({ opt, state, onClick, revealed, rtl, letter, rank }) {
       // צבע לפי מצב: רגיל / נכון / שגוי
-      let ring = "border-white/15 hover:border-indigo-300/70 hover:bg-white/15";
-      if (state === "correct") ring = "border-emerald-400 bg-emerald-400/20";
+      let ring = "border-white/15 hover:border-indigo-300/70 hover:bg-white/15 hover:shadow-indigo-500/20";
+      if (state === "correct") ring = "border-emerald-400 bg-emerald-400/20 shadow-emerald-500/30";
       if (state === "wrong")   ring = "border-rose-400 bg-rose-400/20 shake";
+
+      const medals = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
       return (
         <button
@@ -231,22 +235,44 @@
           disabled={revealed}
           className={
             "group relative w-full text-right p-4 rounded-2xl border " +
-            "backdrop-blur-xl bg-white/10 shadow-xl transition-all duration-200 " +
-            "disabled:cursor-default hover:scale-[1.02] " + ring
+            "backdrop-blur-xl bg-white/10 shadow-xl transition-all duration-300 " +
+            "disabled:cursor-default hover:scale-[1.03] " + ring
           }
         >
+          {/* תגית "הבחירה של המודל" על האפשרות הנכונה אחרי החשיפה */}
+          {state === "correct" && (
+            <span className="absolute -top-2.5 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full
+                             bg-emerald-400 text-emerald-950 shadow pop-in">
+              ✓ הבחירה של המודל
+            </span>
+          )}
           <div className="flex items-center justify-between gap-3">
-            <span className="text-2xl font-bold tracking-wide" dir={rtl ? "rtl" : "ltr"}>{opt.word}</span>
+            <div className="flex items-center gap-3 min-w-0">
+              {/* תג עגול: אות לפני החשיפה, מדליית דירוג אחריה */}
+              <span className={
+                "w-9 h-9 rounded-xl flex items-center justify-center text-base font-extrabold shrink-0 " +
+                "transition-all duration-300 border " +
+                (revealed
+                  ? "bg-black/30 border-white/20"
+                  : "bg-white/10 border-white/20 group-hover:bg-indigo-500/40")
+              }>
+                {revealed ? (medals[rank] || rank) : letter}
+              </span>
+              <span className="text-2xl font-bold tracking-wide truncate" dir={rtl ? "rtl" : "ltr"}>
+                {opt.word}
+              </span>
+            </div>
             {/* ההסתברות מתגלה רק אחרי בחירה — כדי שהשחקן ינחש לפי הקשר ולא לפי המספר */}
-            <span className={"text-sm font-mono px-2 py-1 rounded-lg bg-black/30 " +
+            <span className={"text-sm font-mono px-2 py-1 rounded-lg bg-black/30 shrink-0 transition-opacity " +
               (revealed ? "opacity-100" : "opacity-0")}>
               {opt.prob}%
             </span>
           </div>
           {/* פס ההסתברות — ויזואליזציה של ה"ביטחון" של המודל */}
-          <div className="mt-3 h-2 w-full rounded-full bg-black/30 overflow-hidden">
+          <div className="mt-3 h-2.5 w-full rounded-full bg-black/30 overflow-hidden">
             <div
-              className="bar-fill h-full rounded-full bg-gradient-to-r from-indigo-400 to-pink-400"
+              className={"bar-fill h-full rounded-full bg-gradient-to-r " +
+                (state === "correct" ? "from-emerald-400 to-teal-300" : "from-indigo-400 to-pink-400")}
               style={{ width: revealed ? Math.min(opt.prob, 100) + "%" : "0%" }}
             />
           </div>
@@ -271,6 +297,17 @@
         () => level.options.reduce((a, b) => (b.prob > a.prob ? b : a)).word,
         [level]
       );
+
+      // מערבבים את סדר האפשרויות כדי שהתשובה הנכונה לא תהיה תמיד באותו מקום.
+      // useMemo עם תלות ב-levelIdx => הערבוב יציב בתוך השלב, ומתחדש בכל מעבר שלב.
+      const shuffledOptions = useMemo(() => {
+        const arr = [...level.options];
+        for (let i = arr.length - 1; i > 0; i--) {       // אלגוריתם Fisher–Yates
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }, [levelIdx]);
 
       const revealed = selected !== null;
 
@@ -498,12 +535,14 @@
                 <TokenBlock text="? ? ?" ghost />
               </div>
 
-              {/* 4 האפשרויות */}
+              {/* 4 האפשרויות — בסדר מעורבב (התשובה הנכונה לא קבועה במקום) */}
               <div className="grid sm:grid-cols-2 gap-3">
-                {level.options.map(opt => {
+                {shuffledOptions.map((opt, idx) => {
                   let st = null;
                   if (revealed && opt.word === correctWord) st = "correct";
                   else if (revealed && opt.word === selected) st = "wrong";
+                  // דירוג לפי הסתברות: כמה אפשרויות גבוהות ממנה + 1
+                  const rank = shuffledOptions.filter(o => o.prob > opt.prob).length + 1;
                   return (
                     <OptionCard
                       key={opt.word}
@@ -511,6 +550,8 @@
                       state={st}
                       revealed={revealed}
                       rtl={level.rtl}
+                      letter={"ABCD"[idx]}
+                      rank={rank}
                       onClick={() => handlePick(opt.word)}
                     />
                   );
