@@ -86,6 +86,7 @@
     const LEVELS = [
       {
         id: 1,
+        concept: "חיזוי בסיסי",
         title: "שלב 1 — חיזוי פשוט",
         subtitle: "המודל בוחר את הטוקן הסביר ביותר לפי ההקשר",
         context: ["Early", "one", "morning,", "the", "sun", "was"],
@@ -99,6 +100,7 @@
       },
       {
         id: 2,
+        concept: "הקשר ומשמעות",
         title: "שלב 2 — הקשר ומשמעות",
         subtitle: "אותן מילים יכולות להוביל לכיוונים שונים — ההקשר מכריע",
         context: ["Time", "flies", "like", "an"],
@@ -112,6 +114,7 @@
       },
       {
         id: 3,
+        concept: "סאב-טוקנים",
         title: "שלב 3 — טוקנים הם לא מילים שלמות",
         subtitle: "לפעמים טוקן הוא רק חלק ממילה",
         context: ["Artificial", "intelli"],
@@ -125,6 +128,7 @@
       },
       {
         id: 4,
+        concept: "התפלגות הסתברות",
         title: "שלב 4 — הסתברויות זעירות",
         subtitle: "ההפרש בין ניחוש טוב לרע יכול להיות עצום",
         context: ["The", "capital", "of", "France", "is"],
@@ -136,10 +140,68 @@
         ],
         fact: "שים לב להפרש: 0.014% מול 0.00005%. המודל מחשב הסתברות לכל טוקן באוצר המילים ובוחר את הגבוה — מיליוני חישובים לכל מילה.",
       },
+      {
+        id: 5,
+        concept: "ביטויים שגורים",
+        title: "שלב 5 — ביטויים שהמודל 'שינן'",
+        subtitle: "ביטויים נפוצים מופיעים אינספור פעמים באימון — וקל לנבא אותם",
+        context: ["Better", "late", "than"],
+        options: [
+          { word: "never",  prob: 96 },
+          { word: "sorry",  prob: 2 },
+          { word: "early",  prob: 1.5 },
+          { word: "coffee", prob: 0.5 },
+        ],
+        fact: "פתגמים וביטויים קבועים מופיעים מיליוני פעמים בנתוני האימון, ולכן המודל מנבא אותם כמעט בוודאות. זה מסביר למה AI 'יודע' ניסוחים שגורים.",
+      },
+      {
+        id: 6,
+        concept: "ניבוי קוד",
+        title: "שלב 6 — לא רק טקסט, גם קוד",
+        subtitle: "אותו עיקרון בדיוק עובד גם על שפות תכנות",
+        context: ["for", "i", "in", "range(5):", "print("],
+        options: [
+          { word: "i",       prob: 88 },
+          { word: "x",       prob: 7 },
+          { word: "\"hi\"",  prob: 4 },
+          { word: "banana",  prob: 1 },
+        ],
+        fact: "כלים כמו GitHub Copilot עובדים בדיוק כך — מנבאים את הטוקן הבא בקוד. בלולאה שמשתמשת ב-i, ההמשך הסביר ביותר הוא להדפיס את i.",
+      },
+      {
+        id: 7,
+        concept: "תחביר ודקדוק",
+        title: "שלב 7 — דקדוק והיגיון",
+        subtitle: "המודל לומד חוקי תחביר מבלי שלימדו אותו אותם במפורש",
+        context: ["The", "cat", "sat", "on", "the"],
+        options: [
+          { word: "mat",   prob: 82 },
+          { word: "cloud", prob: 9 },
+          { word: "idea",  prob: 6 },
+          { word: "seven", prob: 3 },
+        ],
+        fact: "אחרי 'on the' המודל מצפה לשם עצם פיזי. הוא לא למד דקדוק מספר חוקים — הוא הסיק את הכללים מתוך כמויות עצומות של טקסט.",
+      },
+      {
+        id: 8,
+        concept: "ריבוי שפות",
+        rtl: true, // השלב הזה בעברית — מוצג מימין לשמאל
+        title: "שלב 8 — זה עובד בכל שפה",
+        subtitle: "אותו מנגנון חיזוי טוקנים פועל גם בעברית",
+        context: ["בוקר", "טוב!", "מה"],
+        options: [
+          { word: "שלומך", prob: 90 },
+          { word: "אופניים", prob: 5 },
+          { word: "שבע", prob: 3 },
+          { word: "כחול", prob: 2 },
+        ],
+        fact: "מודל שפה לא 'יודע עברית' בנפרד — הוא מפרק כל שפה לטוקנים ומנבא לפי הסתברות. לכן אותו מודל יכול לעבוד באנגלית, עברית, ואפילו בקוד.",
+      },
     ];
 
-    /* רכיב קטן: בלוק של טוקן בודד מתוך המשפט (ההקשר) */
-    function TokenBlock({ text, ghost }) {
+    /* רכיב קטן: בלוק של טוקן בודד מתוך המשפט (ההקשר).
+       rtl=true כשהשלב בעברית, כדי שהטקסט יוצג בכיוון הנכון. */
+    function TokenBlock({ text, ghost, rtl }) {
       return (
         <span
           className={
@@ -149,7 +211,7 @@
               ? "border-dashed border-white/40 text-white/50 bg-white/5"   // ה"חור" שצריך למלא
               : "border-white/20 text-white bg-white/10 shadow-lg")        // טוקן קיים
           }
-          dir="ltr"
+          dir={rtl ? "rtl" : "ltr"}
         >
           {text}
         </span>
@@ -157,7 +219,7 @@
     }
 
     /* רכיב: כפתור אפשרות עם פס הסתברות */
-    function OptionCard({ opt, state, onClick, revealed }) {
+    function OptionCard({ opt, state, onClick, revealed, rtl }) {
       // צבע לפי מצב: רגיל / נכון / שגוי
       let ring = "border-white/15 hover:border-indigo-300/70 hover:bg-white/15";
       if (state === "correct") ring = "border-emerald-400 bg-emerald-400/20";
@@ -174,7 +236,7 @@
           }
         >
           <div className="flex items-center justify-between gap-3">
-            <span className="text-2xl font-bold tracking-wide" dir="ltr">{opt.word}</span>
+            <span className="text-2xl font-bold tracking-wide" dir={rtl ? "rtl" : "ltr"}>{opt.word}</span>
             {/* ההסתברות מתגלה רק אחרי בחירה — כדי שהשחקן ינחש לפי הקשר ולא לפי המספר */}
             <span className={"text-sm font-mono px-2 py-1 rounded-lg bg-black/30 " +
               (revealed ? "opacity-100" : "opacity-0")}>
@@ -319,8 +381,8 @@
                                 border border-white/15 rounded-2xl p-5 mb-6 text-sm">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500
-                                    flex items-center justify-center text-lg font-extrabold shrink-0">
-                      או
+                                    flex items-center justify-center text-2xl shrink-0">
+                      🤖
                     </div>
                     <div>
                       <div className="font-bold text-white">נוצר על ידי אור עתאי</div>
@@ -329,6 +391,7 @@
                   </div>
                   <div className="text-white/70 text-xs sm:text-sm leading-relaxed border-t border-white/10 pt-3">
                     <p><b className="text-white/85">קורס:</b> יישומי בינה מלאכותית בעולם העסקי (6170)</p>
+                    <p><b className="text-white/85">מרצה:</b> ליאור נוי</p>
                     <p><b className="text-white/85">מוסד:</b> הקריה האקדמית אונו (OAC)</p>
                     <p className="mt-1">
                       פרויקט אישי — אמצעי המחשה לאחד המושגים החישוביים הנלמדים בקורס.
@@ -372,7 +435,7 @@
                 חזרה לעמוד הפתיחה 🔄
               </button>
               <p className="mt-6 text-white/40 text-xs">
-                נוצר על ידי אור עתאי · קורס 6170 · הקריה האקדמית אונו
+                נוצר על ידי אור עתאי · קורס 6170 (מרצה: ליאור נוי) · הקריה האקדמית אונו
               </p>
             </div>
           </div>
@@ -412,13 +475,26 @@
           <main className="w-full max-w-3xl pop-in" key={level.id}>
             <div className="p-6 sm:p-8 rounded-3xl border border-white/20
                             bg-white/10 backdrop-blur-2xl shadow-2xl">
-              <div className="mb-1 text-sm font-semibold text-indigo-300">{level.title}</div>
+              {/* שורת תגיות: מספר שלב + המושג שהשלב מלמד */}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="text-xs font-semibold bg-white/10 border border-white/20
+                                 rounded-full px-3 py-1 text-white/70">
+                  שלב {levelIdx + 1} מתוך {LEVELS.length}
+                </span>
+                <span className="text-xs font-bold bg-indigo-500/30 border border-indigo-300/40
+                                 rounded-full px-3 py-1 text-indigo-200">
+                  🏷️ {level.concept}
+                </span>
+              </div>
+
+              <div className="mb-1 text-lg font-bold text-white">{level.title}</div>
               <div className="mb-5 text-white/60 text-sm">{level.subtitle}</div>
 
               {/* המשפט כבלוקים של טוקנים + "חור" למילוי */}
               <div className="flex flex-wrap items-center justify-center
-                              bg-black/20 rounded-2xl p-5 mb-6" dir="ltr">
-                {level.context.map((t, i) => <TokenBlock key={i} text={t} />)}
+                              bg-black/20 rounded-2xl p-5 mb-6"
+                   dir={level.rtl ? "rtl" : "ltr"}>
+                {level.context.map((t, i) => <TokenBlock key={i} text={t} rtl={level.rtl} />)}
                 <TokenBlock text="? ? ?" ghost />
               </div>
 
@@ -434,6 +510,7 @@
                       opt={opt}
                       state={st}
                       revealed={revealed}
+                      rtl={level.rtl}
                       onClick={() => handlePick(opt.word)}
                     />
                   );
@@ -475,7 +552,7 @@
           )}
 
           <footer className="mt-8 text-white/40 text-xs text-center leading-relaxed">
-            נוצר על ידי <span className="text-white/60 font-semibold">אור עתאי</span> · קורס יישומי בינה מלאכותית בעולם העסקי (6170) · הקריה האקדמית אונו
+            נוצר על ידי <span className="text-white/60 font-semibold">אור עתאי</span> · קורס 6170 (מרצה: ליאור נוי) · הקריה האקדמית אונו
             <br />הדגמה של Tokens, Context & Next-Word Prediction
           </footer>
         </div>
